@@ -50,7 +50,7 @@ export default function MahasiswaForm({
 
   return (
     <form onSubmit={handleSubmit} className="card">
-      <h2>{selectedMahasiswa ? "Edit Mahasiswa" : "Tambah Mahasiswa"}</h2>
+      <h2>{selectedMahasiswa ? "Ubah Informasi Mahasiswa" : "Registrasi Mahasiswa Baru"}</h2>
       <div className="grid">
         <div className="form-group">
           <label htmlFor="nim">NIM</label>

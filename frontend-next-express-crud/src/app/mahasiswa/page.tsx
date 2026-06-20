@@ -84,11 +84,38 @@ export default function MahasiswaPage() {
     <main className="container">
       <div className="header">
         <div>
-          <h1>CRUD Data Mahasiswa</h1>
-          <p>Frontend Next.js yang terhubung ke backend Express.js.</p>
+          <h1 style={{ marginBottom: "4px" }}>Dashboard Data Mahasiswa</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            <p style={{ margin: 0, color: "var(--text-secondary)" }}>
+              Kelola data profil, program studi, dan angkatan mahasiswa secara real-time.
+            </p>
+            <span style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "4px 12px",
+              borderRadius: "9999px",
+              backgroundColor: error ? "var(--danger-light)" : (loading ? "rgba(245, 158, 11, 0.12)" : "var(--success-light)"),
+              color: error ? "var(--danger)" : (loading ? "#d97706" : "var(--success)"),
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              border: "1px solid " + (error ? "rgba(225, 29, 72, 0.15)" : (loading ? "rgba(245, 158, 11, 0.15)" : "rgba(13, 148, 136, 0.15)")),
+            }}>
+              <span className={`status-dot ${loading ? "pulse" : ""}`} style={{ 
+                display: "inline-block", 
+                width: "6px", 
+                height: "6px", 
+                borderRadius: "50%", 
+                backgroundColor: error ? "var(--danger)" : (loading ? "#d97706" : "var(--success)"),
+              }}></span>
+              {error ? "API Terputus" : (loading ? "Menghubungkan" : "API Aktif")}
+            </span>
+          </div>
         </div>
         <Link href="/">
-          <button className="btn-secondary">Kembali</button>
+          <button className="btn-secondary" style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+            <span>&larr;</span> Kembali
+          </button>
         </Link>
       </div>
 
@@ -149,6 +176,14 @@ export default function MahasiswaPage() {
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+          0% { opacity: 0.4; }
+          50% { opacity: 1; }
+          100% { opacity: 0.4; }
+        }
+        .pulse {
+          animation: pulse 1.5s infinite ease-in-out;
         }
       `}</style>
     </main>
