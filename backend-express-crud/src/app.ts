@@ -1,7 +1,10 @@
 import express from "express";
 import cors from "cors";
+import path from "path";
 import mahasiswaRoutes from "./routes/mahasiswa.route";
-import mahasiswaDbRoutes from "./routes/mahasiswa-db.route";
+import prodiRoutes from "./routes/prodi.route";
+import authRoutes from "./routes/auth.route";
+import userRoutes from "./routes/user.route";
 
 const app = express();
 
@@ -9,7 +12,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Logging Middleware (Pertemuan 2)
+// Serve static uploads folder
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
+// Logging Middleware
 app.use((req, res, next) => {
   console.log(`[LOG] ${new Date().toISOString()} - ${req.method} ${req.url}`);
   next();
@@ -20,10 +26,10 @@ app.get("/", (req, res) => {
   res.json({ message: "API Express CRUD berjalan" });
 });
 
-// Route Mahasiswa CRUD
+// Register Routes
+app.use("/api/prodi", prodiRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
 app.use("/api/mahasiswa", mahasiswaRoutes);
-
-// Route Mahasiswa Database CRUD (Pertemuan 3)
-app.use("/api/db/mahasiswa", mahasiswaDbRoutes);
 
 export default app;

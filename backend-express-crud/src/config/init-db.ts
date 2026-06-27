@@ -1,67 +1,116 @@
 import mysql from "mysql2/promise";
+import bcrypt from "bcrypt";
 import dotenv from "dotenv";
-import { mahasiswa } from "../data/mahasiswa.data";
 
 dotenv.config();
 
-async function init() {
-  const host = process.env.DB_HOST || "localhost";
-  const port = Number(process.env.DB_PORT || 3000);
-  const user = process.env.DB_USER || "root";
-  const password = process.env.DB_PASSWORD || "";
-  const dbName = process.env.DB_NAME || "db_kampus";
-
-  console.log(`Connecting to MySQL on ${host}:${port} as ${user}...`);
+async function initDb() {
+  const connection = await mysql.createConnection({
+    host: process.env.DB_HOST || "localhost",
+    port: Number(process.env.DB_PORT || 3306),
+    user: process.env.DB_USER || "root",
+    password: process.env.DB_PASSWORD || "",
+  });
 
   try {
-    const connection = await mysql.createConnection({
-      host,
-      port,
-      user,
-      password,
-    });
-
-    // 1. Buat Database jika belum ada
+    const dbName = process.env.DB_NAME || "db_kampus";
+    console.log(`Creating database ${dbName} if not exists...`);
     await connection.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\``);
-    console.log(`Database "${dbName}" berhasil dipersiapkan.`);
-
-    // 2. Gunakan Database
     await connection.query(`USE \`${dbName}\``);
 
-    // 3. Drop tabel lama untuk sinkronisasi data baru secara bersih
+    console.log("Dropping existing tables to prevent foreign key errors...");
     await connection.query("DROP TABLE IF EXISTS mahasiswa");
-    console.log("Tabel lama 'mahasiswa' dihapus untuk sinkronisasi data baru.");
+    await connection.query("DROP TABLE IF EXISTS prodi");
+    await connection.query("DROP TABLE IF EXISTS password_reset_tokens");
+    await connection.query("DROP TABLE IF EXISTS users");
 
-    // 4. Buat kembali tabel mahasiswa
-    const createTableQuery = `
+    console.log("Creating table 'prodi'...");
+    await connection.query(`
+      CREATE TABLE prodi (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nama_prodi VARCHAR(100) NOT NULL UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    console.log("Creating table 'mahasiswa'...");
+    await connection.query(`
       CREATE TABLE mahasiswa (
         id INT AUTO_INCREMENT PRIMARY KEY,
         nim VARCHAR(20) NOT NULL UNIQUE,
         nama VARCHAR(100) NOT NULL,
-        prodi VARCHAR(100) NOT NULL,
+        prodi_id INT NOT NULL,
         angkatan INT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `;
-    await connection.query(createTableQuery);
-    console.log("Tabel 'mahasiswa' berhasil dibuat.");
+        foto VARCHAR(255) NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        CONSTRAINT fk_mahasiswa_prodi
+          FOREIGN KEY (prodi_id) REFERENCES prodi(id)
+          ON UPDATE CASCADE
+          ON DELETE RESTRICT
+      )
+    `);
 
-    // 5. Masukkan data terbaru dari src/data/mahasiswa.data.ts
-    if (mahasiswa.length > 0) {
-      const values = mahasiswa.map((m) => [m.id, m.nim, m.nama, m.prodi, m.angkatan]);
-      await connection.query(
-        "INSERT INTO mahasiswa (id, nim, nama, prodi, angkatan) VALUES ?",
-        [values]
-      );
-      console.log(`Berhasil menyinkronkan ${mahasiswa.length} data mahasiswa dari file data ke MySQL.`);
-    }
+    console.log("Creating table 'users'...");
+    await connection.query(`
+      CREATE TABLE users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(100) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        role ENUM('admin', 'operator', 'viewer') NOT NULL DEFAULT 'viewer',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
 
-    await connection.end();
-    console.log("Sinkronisasi database selesai dengan sukses!");
+    console.log("Creating table 'password_reset_tokens'...");
+    await connection.query(`
+      CREATE TABLE password_reset_tokens (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        token_hash VARCHAR(255) NOT NULL,
+        expires_at DATETIME NOT NULL,
+        used_at DATETIME NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    console.log("Seeding table 'prodi'...");
+    await connection.query(`
+      INSERT INTO prodi (nama_prodi) VALUES
+      ('Informatika'),
+      ('Sistem Informasi'),
+      ('Teknik Elektro'),
+      ('Manajemen'),
+      ('Akuntansi')
+    `);
+
+    console.log("Seeding table 'mahasiswa'...");
+    await connection.query(`
+      INSERT INTO mahasiswa (nim, nama, prodi_id, angkatan) VALUES
+      ('2201001', 'Ahmad Fauzi', 1, 2022),
+      ('2201002', 'Siti Aminah', 2, 2022)
+    `);
+
+    console.log("Hashing passwords for seed users...");
+    const hashedPassword = await bcrypt.hash("password123", 10);
+
+    console.log("Seeding table 'users'...");
+    await connection.query(`
+      INSERT INTO users (name, email, password, role) VALUES
+      ('Admin', 'admin@kampus.ac.id', ?, 'admin'),
+      ('Operator', 'operator@kampus.ac.id', ?, 'operator'),
+      ('Viewer', 'viewer@kampus.ac.id', ?, 'viewer')
+    `, [hashedPassword, hashedPassword, hashedPassword]);
+
+    console.log("Database initialized and seeded successfully!");
   } catch (error) {
-    console.error("Sinkronisasi database gagal:", error);
-    process.exit(1);
+    console.error("Error during database initialization:", error);
+  } finally {
+    await connection.end();
   }
 }
 
-init();
+initDb();
